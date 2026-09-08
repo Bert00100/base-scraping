@@ -1,0 +1,22 @@
+# segredos
+.env
+
+# ambiente Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# cache e storage local do pipeline (nunca é a saída, só checkpoint/cache de trabalho)
+.cache/
+*.sqlite
+*.sqlite3
+
+# documento interno de planejamento/arquitetura — não é necessário pra a skill
+# funcionar (SKILL.md + references/ + schemas/ já têm tudo que o pipeline usa em
+# runtime) e tem linguagem de processo interno ("Passo 4 concluído" etc.) que não
+# faz sentido pra quem só quer instalar e usar a skill publicada
+ARCTETURE.md
