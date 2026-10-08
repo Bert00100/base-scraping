@@ -3,11 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-_NON_DIGIT_RE = re.compile(r"\D")
-
-
-def _only_digits(value: str) -> str:
-    return _NON_DIGIT_RE.sub("", value)
+from scripts.utils import only_digits
 
 
 def _normalize_text(value: str) -> str:
@@ -33,10 +29,10 @@ def validar_match(
     confirma o site (quem chama descarta em vez de gravar lixo).
     """
     texto = _normalize_text(html)
-    texto_digitos = _only_digits(html)
+    texto_digitos = only_digits(html)
     sinais: list[str] = []
 
-    cnpj_digitos = _only_digits(cnpj)
+    cnpj_digitos = only_digits(cnpj)
     if cnpj_digitos and cnpj_digitos in texto_digitos:
         sinais.append("cnpj")
 
@@ -47,7 +43,7 @@ def validar_match(
         sinais.append("nome_fantasia")
 
     if telefone:
-        telefone_digitos = _only_digits(telefone)
+        telefone_digitos = only_digits(telefone)
         if telefone_digitos and telefone_digitos in texto_digitos:
             sinais.append("telefone")
 

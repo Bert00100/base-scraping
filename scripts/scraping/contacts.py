@@ -7,6 +7,7 @@ from urllib.parse import urljoin, urlparse
 from selectolax.parser import HTMLParser
 
 from scripts.scraping.http import ScrapeSession, fetch
+from scripts.utils import only_digits
 
 HIGH_SIGNAL_PATHS = ["/contato", "/contatos", "/sobre", "/sobre-nos", "/equipe", "/quem-somos", "/about", "/contact"]
 
@@ -60,7 +61,7 @@ def extract_contacts_from_html(html: str) -> ContactExtraction:
     texto = tree.text(separator=" ")
 
     emails = {m.lower() for m in _EMAIL_RE.findall(texto)}
-    telefones = {re.sub(r"\D", "", m) for m in _PHONE_RE.findall(texto)}
+    telefones = {only_digits(m) for m in _PHONE_RE.findall(texto)}
 
     whatsapp: set[str] = set()
     for a in tree.css("a[href]"):
@@ -92,6 +93,13 @@ def _candidate_urls(base_url: str, tree: HTMLParser) -> list[str]:
     return candidatos
 
 
+def _merge(resultado: ContactExtraction, extraido: ContactExtraction) -> None:
+    resultado.emails |= extraido.emails
+    resultado.telefones |= extraido.telefones
+    resultado.whatsapp |= extraido.whatsapp
+    resultado.redes_sociais.update(extraido.redes_sociais)
+
+
 async def discover_contacts(
     site_url: str,
     session: ScrapeSession,
@@ -109,10 +117,7 @@ async def discover_contacts(
     resultado.paginas_visitadas.append(home["url"])
     tree = HTMLParser(home["text"])
     extraido = extract_contacts_from_html(home["text"])
-    resultado.emails |= extraido.emails
-    resultado.telefones |= extraido.telefones
-    resultado.whatsapp |= extraido.whatsapp
-    resultado.redes_sociais.update(extraido.redes_sociais)
+    _merge(resultado, extraido)
 
     for url in _candidate_urls(home["url"], tree):
         if len(resultado.paginas_visitadas) >= max_pages:
@@ -123,9 +128,6 @@ async def discover_contacts(
             continue
         resultado.paginas_visitadas.append(pagina["url"])
         extraido = extract_contacts_from_html(pagina["text"])
-        resultado.emails |= extraido.emails
-        resultado.telefones |= extraido.telefones
-        resultado.whatsapp |= extraido.whatsapp
-        resultado.redes_sociais.update(extraido.redes_sociais)
+        _merge(resultado, extraido)
 
     return resultado

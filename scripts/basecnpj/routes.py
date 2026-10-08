@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import re
 from typing import Any
 
 import httpx
 
 from . import cache as cache_module
 from . import client as client_module
+from scripts.utils import only_digits
+
 from .config import Settings, get_settings
-
-
-def _only_digits(value: str) -> str:
-    return re.sub(r"\D", "", value)
 
 
 async def _cached_request(
@@ -61,7 +58,7 @@ async def cnpj(
     use_cache: bool = True,
 ) -> dict[str, Any]:
     """route=cnpj — detalhe completo (S3, validação e hidratação cadastral)."""
-    params = {"cnpj": _only_digits(cnpj)}
+    params = {"cnpj": only_digits(cnpj)}
     return await _cached_request("cnpj", params, settings=settings, client=client, use_cache=use_cache)
 
 
@@ -130,5 +127,5 @@ async def rede(
     use_cache: bool = True,
 ) -> dict[str, Any]:
     """route=rede — grafo societário, exclusivo Business (S5, expansão)."""
-    params = {"cnpj": _only_digits(cnpj), "depth": depth}
+    params = {"cnpj": only_digits(cnpj), "depth": depth}
     return await _cached_request("rede", params, settings=settings, client=client, use_cache=use_cache)

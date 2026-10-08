@@ -60,10 +60,7 @@ def build_lead_json(
             )
 
         if detalhe.telefones:
-            primeiro = detalhe.telefones[0]
-            campos_cadastrais["telefone_cadastral"] = (
-                f"({primeiro.ddd}) {primeiro.numero}" if primeiro.ddd else primeiro.numero
-            )
+            campos_cadastrais["telefone_cadastral"] = detalhe.telefone_principal()
 
         matriz_filial_codigo = detalhe.matriz_filial_codigo()
         if matriz_filial_codigo is not None:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import sqlite3
 from typing import Any
 
@@ -8,15 +7,10 @@ import httpx
 
 from scripts.basecnpj import routes
 from scripts.basecnpj.config import Settings
+from scripts.utils import only_digits
 
 from . import db as db_module
 from .icp import ICP
-
-_DIGITS_RE = re.compile(r"\D")
-
-
-def _only_digits(value: str) -> str:
-    return _DIGITS_RE.sub("", value)
 
 
 async def discover(
@@ -61,7 +55,7 @@ async def discover(
                 if db_module.count_leads(conn, run_id) >= target_leads:
                     target_reached = True
                     break
-                cnpj_key = _only_digits(item.get("cnpj_completo", ""))
+                cnpj_key = only_digits(item.get("cnpj_completo", ""))
                 if not cnpj_key:
                     continue
                 db_module.upsert_lead(conn, run_id, cnpj_key, status="descoberto", discovery=item)

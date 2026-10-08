@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,12 +7,7 @@ import httpx
 
 from scripts.basecnpj import routes
 from scripts.basecnpj.config import Settings
-
-_DIGITS_RE = re.compile(r"\D")
-
-
-def _only_digits(value: str) -> str:
-    return _DIGITS_RE.sub("", value)
+from scripts.utils import only_digits
 
 
 @dataclass
@@ -91,7 +85,7 @@ async def resolve_candidato(
         return ResolucaoResult(candidato=candidato, status="nao_resolvido")
 
     cnpj_bruto = match.get("cnpj_formatado") or match.get("cnpj_completo") or ""
-    cnpj = _only_digits(cnpj_bruto)
+    cnpj = only_digits(cnpj_bruto)
     if not cnpj:
         return ResolucaoResult(candidato=candidato, status="nao_resolvido")
 

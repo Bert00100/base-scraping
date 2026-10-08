@@ -67,6 +67,12 @@ class CNPJDetalhe(BaseModel):
     cnaes: list[CnaeItem] = []
     telefones: list[Telefone] = []
 
+    def telefone_principal(self) -> str | None:
+        if not self.telefones:
+            return None
+        primeiro = self.telefones[0]
+        return f"({primeiro.ddd}) {primeiro.numero}" if primeiro.ddd else primeiro.numero
+
     def cnae_principal(self) -> str | None:
         return next((c.cnae for c in self.cnaes if c.tipo == "Principal"), None)
 
