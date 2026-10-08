@@ -35,6 +35,7 @@ async def test_request_unwraps_success_envelope(settings):
     ("status_code", "code", "expected_cls"),
     [
         (400, "invalid_cnpj", ValidationError),
+        (401, "unauthorized", AuthError),
         (403, "forbidden", AuthError),
         (404, "not_found", NotFoundError),
     ],
@@ -46,7 +47,7 @@ async def test_request_maps_non_retryable_errors(settings, status_code, code, ex
         )
         with pytest.raises(expected_cls):
             await client_module.request("cnpj", {"cnpj": "123"}, settings=settings)
-    assert route.call_count == 1  # não deve retentar 400/403/404
+    assert route.call_count == 1  # não deve retentar 400/401/403/404
 
 
 @pytest.mark.asyncio

@@ -16,7 +16,7 @@ class ValidationError(BaseCNPJError):
 
 
 class AuthError(BaseCNPJError):
-    """403 — token inválido/expirado ou plano não permite a rota. Abortar execução."""
+    """401 (token ausente/inválido) ou 403 (token expirado ou plano não permite a rota). Abortar execução."""
 
 
 class NotFoundError(BaseCNPJError):
@@ -41,6 +41,7 @@ class ServerError(BaseCNPJError):
 
 _STATUS_TO_EXCEPTION: dict[int, type[BaseCNPJError]] = {
     400: ValidationError,
+    401: AuthError,  # confirmado na API real: token inválido devolve 401 `unauthorized`, não 403
     403: AuthError,
     404: NotFoundError,
     405: MethodNotAllowedError,

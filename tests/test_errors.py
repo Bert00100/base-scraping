@@ -18,6 +18,7 @@ from scripts.basecnpj.errors import (
         (400, "missing_q", ValidationError),
         (400, "invalid_cnpj", ValidationError),
         (400, "no_filters", ValidationError),
+        (401, "unauthorized", AuthError),
         (403, "forbidden", AuthError),
         (403, "plan_required", AuthError),
         (404, "not_found", NotFoundError),

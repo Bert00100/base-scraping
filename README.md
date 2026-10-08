@@ -5,7 +5,7 @@
 <p>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white">
   <img alt="uv" src="https://img.shields.io/badge/deps-uv-6340ac">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-137%20passing-brightgreen?logo=pytest&logoColor=white">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-140%20passing-brightgreen?logo=pytest&logoColor=white">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-informational">
   <img alt="Saída" src="https://img.shields.io/badge/output-JSON-black?logo=json">
 </p>
@@ -258,7 +258,7 @@ base-scraping/
 uv run --group dev pytest
 ```
 
-✅ **137 testes**, cobrindo o cliente da API, o pipeline de descoberta/validação e o scraping — sem nenhuma chamada de rede real (tudo mockado com `respx`).
+✅ **140 testes**, cobrindo o cliente da API, o pipeline de descoberta/validação e o scraping — sem nenhuma chamada de rede real (tudo mockado com `respx`).
 
 ---
 

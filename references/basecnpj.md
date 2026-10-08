@@ -68,7 +68,8 @@ Consultas avançadas que usam filtro de **capital** ou **porte** podem levar de 
 | HTTP | Códigos | Tratamento |
 |---|---|---|
 | 400 | `missing_q`, `invalid_cnpj`, `no_filters` | erro de programação nosso — falhar alto, não repetir |
-| 403 | `forbidden`, `plan_required` | token inválido/expirado — abortar execução com mensagem clara |
+| 401 | `unauthorized` | token ausente ou inválido (confirmado na API real) — abortar execução com mensagem clara |
+| 403 | `forbidden`, `plan_required` | token expirado ou plano sem acesso à rota — abortar execução com mensagem clara |
 | 404 | `not_found`, `unknown_route` | CNPJ inexistente → marcar lead como não resolvido, seguir |
 | 405 | `method_not_allowed` | nunca deve acontecer (só usamos GET) |
 | 429 | `rate_limit` | backoff exponencial + `Retry-After`; no Business não deve ocorrer |

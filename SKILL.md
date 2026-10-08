@@ -21,7 +21,7 @@ Ver `references/basecnpj.md` para rotas/erros/limites da API, `references/cnae.m
 
 ## Como invocar (instruções práticas para o Claude executando o skill)
 
-O pipeline já está implementado e testado (137 testes) em `scripts/`. Não escreva Python novo para responder um pedido de prospecção — **rode os comandos abaixo via Bash**.
+O pipeline já está implementado e testado (140 testes) em `scripts/`. Não escreva Python novo para responder um pedido de prospecção — **rode os comandos abaixo via Bash**.
 
 1. **Diretório de trabalho:** todos os comandos abaixo assumem `cd` para a raiz deste skill (onde estão `pyproject.toml` e `scripts/`). Rode `ls pyproject.toml` para confirmar que está no lugar certo antes de tudo.
 2. **Dependências:** se for a primeira vez, `uv sync` instala tudo (ambiente já costuma estar pronto). Nunca rode `pip install` direto — este projeto usa `uv`.
@@ -98,7 +98,7 @@ Sites que parecem exigir JavaScript (SPA vazia no HTML estático) são marcados 
 ## Regras transversais (sempre válidas)
 
 - **Confirmação do ICP é obrigatória** antes de qualquer paginação em massa.
-- **Erros da API**: 400 → erro nosso, não repetir; 403 → token inválido/expirado, abortar com mensagem clara; 404 → lead não resolvido, seguir; 429 → backoff exponencial + `Retry-After` (não deveria ocorrer no Business); 500 → retry com backoff até 3x, depois enfileirar.
+- **Erros da API**: 400 → erro nosso, não repetir; 401/403 → token inválido/expirado, abortar com mensagem clara; 404 → lead não resolvido, seguir; 429 → backoff exponencial + `Retry-After` (não deveria ocorrer no Business); 500 → retry com backoff até 3x, depois enfileirar.
 - **LinkedIn está fora do v1** — não scrapear, não contornar bloqueios.
 - **Saída sempre em JSON**, no máximo **100 leads por execução**. SQLite é só checkpoint interno, nunca formato de saída para o usuário.
 - **LGPD**: dado de empresa é público; nome/e-mail de pessoa física é dado pessoal — tratar com finalidade clara e proveniência registrada. Ver `references/compliance.md`.

@@ -54,11 +54,15 @@ def test_cnpj_404_marca_nao_resolvido_e_segue(tmp_path):
     assert [lead["cnpj"] for lead in leads] == ["11111111000111"]
 
 
-def test_avancada_403_sai_com_token_invalido(tmp_path):
+@pytest.mark.parametrize(
+    ("status_code", "code"),
+    [(401, "unauthorized"), (403, "forbidden")],
+)
+def test_avancada_sem_autorizacao_sai_com_token_invalido(tmp_path, status_code, code):
     with respx.mock(base_url=BASE_URL) as mock:
         mock.get("", params={"route": "status"}).mock(return_value=_ok({"status": "ok"}))
         mock.get("", params={"route": "avancada"}).mock(
-            return_value=httpx.Response(403, json={"ok": False, "error": {"code": "forbidden", "message": "x"}})
+            return_value=httpx.Response(status_code, json={"ok": False, "error": {"code": code, "message": "x"}})
         )
         result, _ = _invocar(tmp_path)
 
