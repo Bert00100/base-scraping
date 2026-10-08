@@ -123,6 +123,7 @@ def build_icp(
     porte: str | None = None,
     situacao: str = "ativa",
     cep: str | None = None,
+    matriz: bool = False,
     cnae_dict_path: Path | str = DEFAULT_CNAE_DICT_PATH,
 ) -> ICP:
     """Monta o ICP estruturado (S0). Se o nicho não bater no dicionário, devolve
@@ -133,13 +134,17 @@ def build_icp(
     faz match por prefixo, confirmado empiricamente; ver references/basecnpj.md).
     É o jeito de filtrar por bairro/região dentro de um município, já que a busca
     avançada não tem um filtro de bairro nomeado.
+
+    `matriz=True` restringe a descoberta a matrizes (`matriz_filial="1"`).
     """
     dictionary = load_cnae_dictionary(cnae_dict_path)
     entry = resolve_nicho(nicho, dictionary)
 
     situacao_codigo = SITUACAO_CODIGOS.get(situacao.strip().lower(), situacao) if situacao else None
     porte_codigo = PORTE_CODIGOS.get(porte.strip().lower(), porte) if porte else None
-    filtros_extra = {"cep": cep} if cep else {}
+    filtros_extra: dict[str, Any] = {"cep": cep} if cep else {}
+    if matriz:
+        filtros_extra["matriz_filial"] = "1"
 
     if entry is None:
         return ICP(

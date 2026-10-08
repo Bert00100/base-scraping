@@ -28,14 +28,14 @@ O pipeline já está implementado e testado (118+ testes) em `scripts/`. Não es
 3. **Token:** `BASECNPJ_TOKEN` precisa estar em `.env` na raiz do skill (ver `.env.example`). Se não existir, pare e peça o token ao usuário — nunca invente um.
 4. **Comando de descoberta+validação só (S0→S3), sem scraping:**
    ```
-   uv run python -m scripts.pipeline_cli descobrir "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>]
+   uv run python -m scripts.pipeline_cli descobrir "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz]
    ```
 5. **Comando completo (S0→S4→S6), com score e enriquecimento:**
    ```
-   uv run python -m scripts.pipeline_cli prospectar "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--sites-json <arquivo.json>]
+   uv run python -m scripts.pipeline_cli prospectar "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz] [--sites-json <arquivo.json>]
    ```
    Sem `--sites-json`, os leads saem sem enriquecimento de site/e-mail (só dado cadastral) — ainda assim é uma saída válida e completa em JSON, com score. Para enriquecer, ache as URLs candidatas via busca web (uma por lead validado, usando nome fantasia/razão social + cidade como pista) e escreva um JSON `{"<cnpj>": "<url>"}` num arquivo temporário antes de rodar `prospectar` com `--sites-json`.
-6. **Bairro/região dentro de um município:** a API não tem filtro de bairro nomeado. Use `--cep` com um **prefixo** de CEP (ex. `0507` cobre boa parte do bairro Lapa em São Paulo capital — confirmado empiricamente, ver `references/basecnpj.md`). Se não souber o prefixo de CEP do bairro pedido, pesquise (conhecimento geral ou busca web) antes de rodar, e mostre o prefixo escolhido ao usuário.
+6. **Bairro/região dentro de um município:** a API não tem filtro de bairro nomeado. Use `--cep` com um **prefixo** de CEP (ex. `0507` cobre boa parte do bairro Lapa em São Paulo capital — confirmado empiricamente, ver `references/basecnpj.md`). Se não souber o prefixo de CEP do bairro pedido, pesquise (conhecimento geral ou busca web) antes de rodar, e mostre o prefixo escolhido ao usuário. Se o usuário quiser só matrizes (uma entrada por empresa, sem filiais), adicione `--matriz`.
 7. **Nicho fora do dicionário:** o comando já recusa sozinho (`erro: nicho_nao_encontrado`) e não inventa CNAE. Proponha o CNAE certo (raciocínio ou busca web), **confirme com o usuário**, e depois de confirmado adicione a entrada em `references/cnae.md` seguindo o formato das linhas existentes — assim o dicionário melhora com o uso.
 8. **Saída:** sempre JSON no stdout do comando. Leia, interprete e apresente pro usuário em linguagem natural (tabela, lista, etc.) — não jogue o JSON cru na resposta final a menos que o usuário peça o dado bruto.
 9. **Retomada:** rodar o mesmo comando com os mesmos parâmetros de novo é seguro e barato — o checkpoint em SQLite (`.cache/pipeline.sqlite3` por padrão) evita refazer chamadas já feitas.
@@ -83,8 +83,8 @@ Sites que parecem exigir JavaScript (SPA vazia no HTML estático) são marcados 
 `scripts/pipeline/score.py` pontua cada lead validado (30 aderência ICP + 30 qualidade de contato + 20 presença digital + 20 saúde cadastral). `scripts/pipeline/export.py` monta o JSON final com `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` por campo e aplica o teto de 100 leads (mantendo os de maior score se sobrar mais que isso).
 
 `scripts/pipeline_cli.py` expõe os dois comandos de ponta a ponta:
-- `descobrir <nicho> --uf UF --municipio MUN --porte PORTE`: S0→S3, retomável via checkpoint SQLite.
-- `prospectar <nicho> --uf UF --municipio MUN --porte PORTE [--sites-json arquivo.json]`: S0→S4→S6 completo (sem S5). `--sites-json` é o ponto de entrada pro skill informar as URLs candidatas já encontradas via busca web.
+- `descobrir <nicho> --uf UF --municipio MUN --porte PORTE [--matriz]`: S0→S3, retomável via checkpoint SQLite.
+- `prospectar <nicho> --uf UF --municipio MUN --porte PORTE [--matriz] [--sites-json arquivo.json]`: S0→S4→S6 completo (sem S5). `--sites-json` é o ponto de entrada pro skill informar as URLs candidatas já encontradas via busca web.
 
 **S5 (rede societária) fica fora do v1.** O cliente já expõe `routes.rede()` (Passo 4), mas o pipeline não a chama; fica pra fase 2.
 

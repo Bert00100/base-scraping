@@ -44,9 +44,23 @@ def _run_or_exit(coro):
 
 
 def _resolve_icp_or_exit(
-    nicho: str, uf: str | None, municipio: str | None, porte: str | None, situacao: str, cep: str | None
+    nicho: str,
+    uf: str | None,
+    municipio: str | None,
+    porte: str | None,
+    situacao: str,
+    cep: str | None,
+    matriz: bool = False,
 ) -> icp_module.ICP:
-    icp = icp_module.build_icp(nicho=nicho, uf=uf, municipio=municipio, porte=porte, situacao=situacao, cep=cep)
+    icp = icp_module.build_icp(
+        nicho=nicho,
+        uf=uf,
+        municipio=municipio,
+        porte=porte,
+        situacao=situacao,
+        cep=cep,
+        matriz=matriz,
+    )
     if icp.needs_confirmation:
         _exit_with_error(
             "nicho_nao_encontrado",
@@ -68,6 +82,7 @@ async def _descobrir_ate_validar(
     situacao: str,
     cep: str | None,
     db_path: str | None,
+    matriz: bool = False,
 ) -> tuple[Any, str, list[dict[str, Any]]]:
     """S0→S3: roda preflight, descoberta (com checkpoint) e validação dos leads
     ainda não processados. Devolve (conn, run_id, leads_validados_desta_execucao_em_diante).
@@ -77,7 +92,16 @@ async def _descobrir_ate_validar(
         raise PreflightError(f"preflight falhou: {status}")
 
     conn = db_module.connect(Path(db_path) if db_path else None)
-    params = {"nicho": nicho, "uf": uf, "municipio": municipio, "porte": porte, "situacao": situacao, "cep": cep}
+    params: dict[str, Any] = {
+        "nicho": nicho,
+        "uf": uf,
+        "municipio": municipio,
+        "porte": porte,
+        "situacao": situacao,
+        "cep": cep,
+    }
+    if matriz:
+        params["matriz"] = True  # só quando usada, para não mudar o run_id de execuções antigas
     run_id = db_module.make_run_id(params)
     db_module.ensure_run(conn, run_id, params, TARGET_LEADS)
 
@@ -119,6 +143,7 @@ def descobrir(
     porte: str | None = None,
     situacao: str = "ativa",
     cep: str | None = None,
+    matriz: bool = False,
     db_path: str | None = None,
 ) -> None:
     """S0→S3: traduz o nicho em CNAE (`references/cnae.md`), descobre via busca
@@ -127,13 +152,22 @@ def descobrir(
 
     `--cep` filtra por prefixo de CEP (ex. "0507") — é o jeito de restringir a
     um bairro/região dentro de um município, já que não há filtro de bairro
-    nomeado na API (ver references/basecnpj.md).
+    nomeado na API (ver references/basecnpj.md). `--matriz` restringe a
+    descoberta a estabelecimentos matriz (exclui filiais).
     """
-    icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep)
+    icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
 
     async def _pipeline() -> list[dict[str, Any]]:
         _conn, _run_id, validados = await _descobrir_ate_validar(
-            icp, nicho=nicho, uf=uf, municipio=municipio, porte=porte, situacao=situacao, cep=cep, db_path=db_path
+            icp,
+            nicho=nicho,
+            uf=uf,
+            municipio=municipio,
+            porte=porte,
+            situacao=situacao,
+            cep=cep,
+            db_path=db_path,
+            matriz=matriz,
         )
         return [{"cnpj": v["cnpj"], "razao_social": (v["detalhe"] or {}).get("razao_social")} for v in validados]
 
@@ -149,17 +183,19 @@ def prospectar(
     porte: str | None = None,
     situacao: str = "ativa",
     cep: str | None = None,
+    matriz: bool = False,
     db_path: str | None = None,
     sites_json: str | None = None,
 ) -> None:
     """S0→S4→S6 (sem S5 — decisão fechada, seção 11): descobre, valida,
     enriquece (quando há site candidato) e pontua. Sempre JSON, teto fixo de
-    100 leads. `--cep` filtra por bairro/região (prefixo de CEP). `--sites-json`
+    100 leads. `--cep` filtra por bairro/região (prefixo de CEP). `--matriz`
+    descobre só matrizes. `--sites-json`
     aponta pra um arquivo `{"cnpj": "url candidata"}` — achar a URL em si é
     responsabilidade do skill via busca web, não deste comando (regra de ouro
     da seção 6 do ARCTETURE.md).
     """
-    icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep)
+    icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
 
     sites: dict[str, str] = {}
     if sites_json:
@@ -167,7 +203,15 @@ def prospectar(
 
     async def _pipeline() -> dict[str, Any]:
         conn, run_id, validados = await _descobrir_ate_validar(
-            icp, nicho=nicho, uf=uf, municipio=municipio, porte=porte, situacao=situacao, cep=cep, db_path=db_path
+            icp,
+            nicho=nicho,
+            uf=uf,
+            municipio=municipio,
+            porte=porte,
+            situacao=situacao,
+            cep=cep,
+            db_path=db_path,
+            matriz=matriz,
         )
 
         session = ScrapeSession()
@@ -183,15 +227,15 @@ def prospectar(
             candidate_url = sites.get(v["cnpj"])
             if candidate_url:
                 detalhe = resultado.detalhe
-                matriz = detalhe.estabelecimento_matriz if detalhe else None
+                estab = detalhe.estabelecimento_matriz if detalhe else None
                 enrichment = await enrich(
                     candidate_url,
                     session,
                     cnpj=v["cnpj"],
                     razao_social=detalhe.razao_social if detalhe else None,
-                    nome_fantasia=matriz.nome_fantasia if matriz else None,
+                    nome_fantasia=estab.nome_fantasia if estab else None,
                     telefone_cadastral=detalhe.telefone_principal() if detalhe else None,
-                    email_cadastral=matriz.email if matriz else None,
+                    email_cadastral=estab.email if estab else None,
                 )
 
             score = compute_score(resultado, enrichment)

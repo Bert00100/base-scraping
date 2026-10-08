@@ -73,6 +73,16 @@ def test_build_icp_cep_filters_by_neighborhood_prefix():
     assert filtros["cep"] == "0507"
 
 
+def test_build_icp_matriz_adiciona_filtro_matriz_filial():
+    result = icp.build_icp(nicho="ótica", uf="SP", matriz=True, cnae_dict_path=CNAE_DICT_PATH)
+    assert result.filtros_por_cnae("4774100")["matriz_filial"] == "1"
+
+
+def test_build_icp_sem_matriz_nao_filtra_matriz_filial():
+    result = icp.build_icp(nicho="ótica", uf="SP", cnae_dict_path=CNAE_DICT_PATH)
+    assert "matriz_filial" not in result.filtros_por_cnae("4774100")
+
+
 @pytest.mark.asyncio
 async def test_preflight_calls_status_route():
     settings = Settings(token=None, base_url="https://basecnpj.app/api/v1/", default_timeout=10.0, heavy_route_timeout=60.0)

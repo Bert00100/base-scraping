@@ -159,6 +159,7 @@ uv run python -m scripts.pipeline_cli prospectar "dentista" --uf SP --municipio 
 | `--municipio` | nome do município |
 | `--porte` | `ME`, `EPP` ou `demais` |
 | `--cep` | 📍 prefixo de CEP — filtra por **bairro/região** dentro de um município (ex. `--cep 0507` cobre a região da Lapa em São Paulo capital) |
+| `--matriz` | só estabelecimentos **matriz** (exclui filiais; envia `matriz_filial=1` na busca avançada) |
 | `--situacao` | situação cadastral desejada (padrão: `ativa`) |
 | `--db-path` | onde fica o checkpoint SQLite (padrão: `.cache/pipeline.sqlite3`) |
 | `--sites-json` | (só em `prospectar`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
