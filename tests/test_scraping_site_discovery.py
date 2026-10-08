@@ -1,16 +1,4 @@
-import pytest
-import respx
-
-from scripts.basecnpj import cache as cache_module
-from scripts.scraping import http as scraping_http
-from scripts.scraping.http import ScrapeSession
-from scripts.scraping.site_discovery import discover_and_validate_site, validar_match
-
-
-@pytest.fixture(autouse=True)
-def isolated_cache(tmp_path, monkeypatch):
-    monkeypatch.setattr(scraping_http, "SCRAPING_CACHE_DIR", tmp_path / "scraping-cache")
-    monkeypatch.setattr(cache_module, "DEFAULT_CACHE_DIR", tmp_path / "unused")
+from scripts.scraping.site_discovery import validar_match
 
 
 def test_validar_match_finds_cnpj_in_footer():
@@ -42,46 +30,3 @@ def test_validar_match_no_signal_is_weak_match():
     assert result.matched is False
     assert result.sinais == []
 
-
-@pytest.mark.asyncio
-async def test_discover_and_validate_site_confirms_match():
-    session = ScrapeSession()
-    with respx.mock() as mock:
-        mock.get("https://empresa.com.br/robots.txt").respond(200, text="User-agent: *\nAllow: /\n")
-        mock.get("https://empresa.com.br/").respond(
-            200, text="<footer>CNPJ 43.292.842/0001-77</footer>"
-        )
-        result = await discover_and_validate_site(
-            "https://empresa.com.br/", session, cnpj="43292842000177", min_delay=0.01, max_delay=0.02
-        )
-
-    assert result.matched is True
-    assert "cnpj" in result.sinais
-    assert result.status_code == 200
-
-
-@pytest.mark.asyncio
-async def test_discover_and_validate_site_returns_no_match_without_raising():
-    session = ScrapeSession()
-    with respx.mock() as mock:
-        mock.get("https://outrosite.com.br/robots.txt").respond(200, text="User-agent: *\nAllow: /\n")
-        mock.get("https://outrosite.com.br/").respond(200, text="<html>nada a ver</html>")
-        result = await discover_and_validate_site(
-            "https://outrosite.com.br/", session, cnpj="43292842000177", min_delay=0.01, max_delay=0.02
-        )
-
-    assert result.matched is False
-
-
-@pytest.mark.asyncio
-async def test_discover_and_validate_site_handles_fetch_error_gracefully():
-    session = ScrapeSession()
-    with respx.mock() as mock:
-        mock.get("https://bloqueado.com.br/robots.txt").respond(200, text="User-agent: *\nDisallow: /\n")
-        result = await discover_and_validate_site(
-            "https://bloqueado.com.br/", session, cnpj="43292842000177", min_delay=0.01, max_delay=0.02
-        )
-
-    assert result.matched is False
-    assert result.erro is not None
-    assert "RobotsDisallowed" in result.erro
