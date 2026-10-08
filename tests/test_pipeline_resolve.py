@@ -46,8 +46,8 @@ async def test_resolve_falls_back_to_busca_when_sugestao_ambiguous(settings):
                 "ok": True,
                 "data": {
                     "items": [
-                        {"cnpj_formatado": "111", "uf": "SP"},
-                        {"cnpj_formatado": "222", "uf": "SP"},
+                        {"cnpj_formatado": "111"},
+                        {"cnpj_formatado": "222"},
                     ]
                 },
             },

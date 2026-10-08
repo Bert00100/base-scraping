@@ -49,6 +49,10 @@ def _pick_unique_match(
 ) -> dict[str, Any] | None:
     """Desempata por UF/município. Sem forma de desempatar e mais de um resultado,
     o match é ambíguo — nunca chuta, devolve None (quem chama marca nao_resolvido).
+
+    Limitação da API real (verificada): `sugestao` não devolve `uf` nem `municipio`, e
+    `busca` devolve `uf` mas não `municipio`. Como campo ausente passa no filtro, na
+    prática só a UF desempata, e só nos itens da `busca`; o município nunca elimina nada.
     """
     if not items:
         return None
@@ -69,7 +73,8 @@ async def resolve_candidato(
     client: httpx.AsyncClient | None = None,
 ) -> ResolucaoResult:
     """S2 — resolve um candidato sem CNPJ: `route=sugestao` primeiro (mais rápido),
-    `route=busca` como busca textual mais ampla. Match ambíguo (ou nenhum resultado)
+    `route=busca` como busca textual mais ampla (o CNPJ vem de `cnpj_formatado`,
+    já completo com 14 dígitos). Match ambíguo (ou nenhum resultado)
     vira `nao_resolvido`, sem nunca chutar entre candidatos.
     """
     sugestao = await routes.sugestao(candidato.nome, settings=settings, client=client)

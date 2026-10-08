@@ -10,16 +10,20 @@ import typer
 from scripts.pipeline import db as db_module
 from scripts.pipeline import discovery
 from scripts.pipeline import icp as icp_module
+from scripts.pipeline.resolve import Candidato, resolve_candidato
 from scripts.pipeline.export import export_leads, build_lead_json
 from scripts.pipeline.score import compute_score
 from scripts.pipeline.validate import ValidacaoResult, validate_lead
 from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.scraping.enrich import enrich
 from scripts.scraping.http import ScrapeSession
+from scripts.utils import only_digits
 
 app = typer.Typer(help="Pipeline do base-scraping — S0→S3 (descobrir) e S0→S4→S6 (prospectar, sem S5).")
 
 TARGET_LEADS = 100  # decisão fechada, seção 11 do ARCTETURE.md — sem override de CLI
+MAX_ITENS_LISTA = 100  # teto de itens do `validar-lista`, mesmo valor do teto de leads
+MOTIVO_404 = "cnpj nao encontrado no BaseCNPJ (404)"
 
 
 class PreflightError(RuntimeError):
@@ -72,6 +76,12 @@ def _resolve_icp_or_exit(
     return icp
 
 
+async def _exigir_preflight() -> None:
+    status = await icp_module.preflight()
+    if status.get("status") != "ok":
+        raise PreflightError(f"preflight falhou: {status}")
+
+
 async def _descobrir_ate_validar(
     icp: icp_module.ICP,
     *,
@@ -87,9 +97,7 @@ async def _descobrir_ate_validar(
     """S0→S3: roda preflight, descoberta (com checkpoint) e validação dos leads
     ainda não processados. Devolve (conn, run_id, leads_validados_desta_execucao_em_diante).
     """
-    status = await icp_module.preflight()
-    if status.get("status") != "ok":
-        raise PreflightError(f"preflight falhou: {status}")
+    await _exigir_preflight()
 
     conn = db_module.connect(Path(db_path) if db_path else None)
     params: dict[str, Any] = {
@@ -119,7 +127,7 @@ async def _descobrir_ate_validar(
                 run_id,
                 cnpj,
                 status="nao_resolvido",
-                discard_reason="cnpj nao encontrado no BaseCNPJ (404)",
+                discard_reason=MOTIVO_404,
             )
             continue
         db_module.upsert_lead(
@@ -266,6 +274,94 @@ def prospectar(
         leads_json = await _enriquecer_e_pontuar(resultados, sites)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["descartados"] = _listar_descartados(conn, run_id)
+        return saida
+
+    resultado_final = _run_or_exit(_pipeline())
+    typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
+
+
+def _ler_lista_ou_exit(arquivo: str) -> list[dict[str, Any]]:
+    try:
+        itens = json.loads(Path(arquivo).read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        _exit_with_error("entrada_invalida", f"não foi possível ler '{arquivo}' como JSON: {exc}")
+    if not isinstance(itens, list) or not all(
+        isinstance(item, dict) and (item.get("cnpj") or item.get("nome")) for item in itens
+    ):
+        _exit_with_error(
+            "entrada_invalida",
+            'O arquivo deve ser uma lista de {"cnpj": ...} ou {"nome": ..., "uf"?, "municipio"?}.',
+        )
+    return itens
+
+
+@app.command("validar-lista")
+def validar_lista(
+    arquivo: str = typer.Option(..., help="JSON com a lista de CNPJs/nomes"),
+    situacao: str = "ativa",
+    sites_json: str | None = None,
+) -> None:
+    """S2→S3→S4→S6 para uma lista própria (sem descoberta): `--arquivo` é um JSON
+    com itens `{"cnpj": ...}` ou `{"nome": ..., "uf"?, "municipio"?}`, no máximo
+    100 itens (o excedente é ignorado e informado na saída). Nome é resolvido via
+    `route=sugestao`/`route=busca`; ambíguo ou sem resultado vai para
+    `nao_resolvidos`. A validação não checa CNAE (a lista não tem nicho).
+    `--sites-json` funciona como em `prospectar`.
+    """
+    itens = _ler_lista_ou_exit(arquivo)
+    ignorados = max(0, len(itens) - MAX_ITENS_LISTA)
+    itens = itens[:MAX_ITENS_LISTA]
+
+    sites: dict[str, str] = {}
+    if sites_json:
+        sites = json.loads(Path(sites_json).read_text())
+
+    codigo_situacao = icp_module.SITUACAO_CODIGOS.get(situacao.strip().lower(), situacao)
+    icp = icp_module.ICP(nicho="lista", cnaes=[], situacao=codigo_situacao)
+
+    async def _pipeline() -> dict[str, Any]:
+        await _exigir_preflight()
+
+        descartados: list[dict[str, Any]] = []
+        nao_resolvidos: list[dict[str, Any]] = []
+        validados: list[ValidacaoResult] = []
+        vistos: set[str] = set()
+
+        for item in itens:
+            if item.get("cnpj"):
+                cnpj = only_digits(str(item["cnpj"]))
+                if len(cnpj) != 14:
+                    nao_resolvidos.append({"cnpj": item["cnpj"], "motivo": "cnpj inválido (não tem 14 dígitos)"})
+                    continue
+            else:
+                resolucao = await resolve_candidato(
+                    Candidato(nome=item["nome"], uf=item.get("uf"), municipio=item.get("municipio"))
+                )
+                if resolucao.status != "resolvido" or resolucao.cnpj is None:
+                    nao_resolvidos.append({"nome": item["nome"], "motivo": "sem match único na sugestão/busca"})
+                    continue
+                cnpj = resolucao.cnpj
+
+            if cnpj in vistos:
+                continue
+            vistos.add(cnpj)
+
+            try:
+                resultado = await validate_lead(cnpj, icp)
+            except NotFoundError:
+                descartados.append({"cnpj": cnpj, "motivo": MOTIVO_404})
+                continue
+            if resultado.status == "validado":
+                validados.append(resultado)
+            else:
+                descartados.append({"cnpj": cnpj, "motivo": resultado.discard_reason})
+
+        leads_json = await _enriquecer_e_pontuar(validados, sites)
+        saida = export_leads(leads_json, max_leads=TARGET_LEADS)
+        saida["descartados"] = descartados
+        saida["nao_resolvidos"] = nao_resolvidos
+        if ignorados:
+            saida["aviso"] = f"{ignorados} item(ns) além do teto de {MAX_ITENS_LISTA} foram ignorados"
         return saida
 
     resultado_final = _run_or_exit(_pipeline())

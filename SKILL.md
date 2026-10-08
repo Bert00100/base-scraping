@@ -35,6 +35,11 @@ O pipeline já está implementado e testado (118+ testes) em `scripts/`. Não es
    uv run python -m scripts.pipeline_cli prospectar "<nicho>" --uf <UF> [--municipio <cidade>] [--porte ME|EPP|demais] [--cep <prefixo>] [--matriz] [--sites-json <arquivo.json>]
    ```
    Sem `--sites-json`, os leads saem sem enriquecimento de site/e-mail (só dado cadastral) — ainda assim é uma saída válida e completa em JSON, com score. Para enriquecer, ache as URLs candidatas via busca web (uma por lead validado, usando nome fantasia/razão social + cidade como pista) e escreva um JSON `{"<cnpj>": "<url>"}` num arquivo temporário antes de rodar `prospectar` com `--sites-json`.
+   **Lista própria (S2→S3→S4→S6), sem descoberta:** quando o usuário já tem uma lista de empresas (CNPJs ou nomes), escreva um JSON `[{"cnpj": "..."}, {"nome": "...", "uf": "SP", "municipio": "Campinas"}]` num arquivo temporário e rode:
+   ```
+   uv run python -m scripts.pipeline_cli validar-lista --arquivo <lista.json> [--situacao ativa] [--sites-json <arquivo.json>]
+   ```
+   Teto de 100 itens (o excedente é ignorado e aparece em `aviso`). A validação não checa CNAE. A saída é `{"total", "leads", "descartados", "nao_resolvidos"}`: explique ao usuário os `nao_resolvidos` (nome ambíguo ou sem resultado; peça o CNPJ ou mais dados) e os `descartados`.
 6. **Bairro/região dentro de um município:** a API não tem filtro de bairro nomeado. Use `--cep` com um **prefixo** de CEP (ex. `0507` cobre boa parte do bairro Lapa em São Paulo capital — confirmado empiricamente, ver `references/basecnpj.md`). Se não souber o prefixo de CEP do bairro pedido, pesquise (conhecimento geral ou busca web) antes de rodar, e mostre o prefixo escolhido ao usuário. Se o usuário quiser só matrizes (uma entrada por empresa, sem filiais), adicione `--matriz`.
 7. **Nicho fora do dicionário:** o comando já recusa sozinho (`erro: nicho_nao_encontrado`) e não inventa CNAE. Proponha o CNAE certo (raciocínio ou busca web), **confirme com o usuário**, e depois de confirmado adicione a entrada em `references/cnae.md` seguindo o formato das linhas existentes — assim o dicionário melhora com o uso.
 8. **Saída:** sempre JSON no stdout do comando. Leia, interprete e apresente pro usuário em linguagem natural (tabela, lista, etc.) — não jogue o JSON cru na resposta final a menos que o usuário peça o dado bruto. Sempre explique ao usuário: (a) a lista `descartados` (`cnpj` + `motivo`) — leads que a descoberta achou mas não entraram, por ICP divergente ou CNPJ não encontrado; (b) o `enriquecimento.status` de cada lead que tenha o campo — `ok`, `requer_navegador` (site com JavaScript, não raspado), `match_fraco` (a URL candidata não confirmou ser a empresa; sugira outra) ou `falha` (veja `motivo`).
@@ -61,7 +66,8 @@ Regra de ouro do skill: **os scripts não chamam LLM nenhum.** Eles entregam JSO
 
 ### S2 — Resolução de identidade
 - Para candidatos sem CNPJ (lista do usuário, diretório, indicação): `route=sugestao` para candidatos rápidos, `route=busca` para busca textual mais ampla.
-- Desempatar por município/UF.
+- Desempatar por UF/município — limitação da API real: `sugestao` não devolve `uf` nem `municipio`, e `busca` devolve `uf` mas não `municipio`. Na prática o desempate só funciona por UF, e só na `busca`.
+- Ligado ao comando `validar-lista` (lista própria de CNPJs/nomes); a descoberta por nicho (`descobrir`/`prospectar`) não passa pelo S2.
 - Match ambíguo → marcar como `nao_resolvido` e seguir. Nunca chutar.
 - Dedup em cascata: CNPJ (chave forte) → domínio do site → nome normalizado + CEP.
 
@@ -84,6 +90,7 @@ Sites que parecem exigir JavaScript (SPA vazia no HTML estático) são marcados 
 
 `scripts/pipeline_cli.py` expõe os dois comandos de ponta a ponta:
 - `descobrir <nicho> --uf UF --municipio MUN --porte PORTE [--matriz]`: S0→S3, retomável via checkpoint SQLite.
+- `validar-lista --arquivo lista.json [--situacao ativa] [--sites-json arquivo.json]`: S2→S3→S4→S6 sobre uma lista de CNPJs/nomes do usuário (até 100 itens), sem CNAE.
 - `prospectar <nicho> --uf UF --municipio MUN --porte PORTE [--matriz] [--sites-json arquivo.json]`: S0→S4→S6 completo (sem S5). `--sites-json` é o ponto de entrada pro skill informar as URLs candidatas já encontradas via busca web.
 
 **S5 (rede societária) fica fora do v1.** O cliente já expõe `routes.rede()` (Passo 4), mas o pipeline não a chama; fica pra fase 2.

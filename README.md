@@ -77,7 +77,7 @@ Essa separação é o que torna o resultado confiável: **se o scraping falhar n
 |---|---|---|
 | **S0** — ICP | Traduz o pedido em filtros estruturados (nicho→CNAE, cidade, porte) | `route=status` (preflight) |
 | **S1** — Descoberta | Pagina a busca avançada, teto fixo de **100 leads** por execução | `route=avancada` |
-| **S2** — Resolução | Resolve candidatos que chegam sem CNPJ (opcional) | `route=sugestao`, `route=busca` |
+| **S2** — Resolução | Resolve candidatos sem CNPJ (comando `validar-lista`); desempate só por UF, e só na `busca` | `route=sugestao`, `route=busca` |
 | **S3** — Validação | Filtra por situação cadastral, CNAE, porte; sinaliza empresa nova | `route=cnpj` |
 | **S4** — Enriquecimento | Valida o site oficial, extrai contato, verifica e-mail em 5 níveis | scraping externo |
 | **S6** — Score e saída | Pontua (0-100) com breakdown por dimensão, exporta JSON com proveniência | — |
@@ -141,7 +141,7 @@ Claude Code carrega skills a partir de um arquivo `SKILL.md` colocado numa pasta
 
 ### 💻 Opção B — CLI direto
 
-Dois comandos, ambos sempre devolvendo **JSON** no stdout:
+Três comandos, todos sempre devolvendo **JSON** no stdout:
 
 ```bash
 # 🔍 S0→S3 — descoberta + validação cadastral, sem scraping
@@ -149,7 +149,14 @@ uv run python -m scripts.pipeline_cli descobrir "dentista" --uf SP --municipio C
 
 # 🏆 S0→S4→S6 — pipeline completo, com score e enriquecimento de contato
 uv run python -m scripts.pipeline_cli prospectar "dentista" --uf SP --municipio Campinas --porte ME
+
+# 📋 S2→S3→S4→S6 — valida uma lista própria (CNPJs ou nomes), sem descoberta
+uv run python -m scripts.pipeline_cli validar-lista --arquivo lista.json
 ```
+
+`lista.json` é uma lista de `{"cnpj": "..."}` ou `{"nome": "...", "uf": "SP", "municipio": "Campinas"}`, com teto de 100 itens (o excedente é ignorado e informado em `aviso`). Nomes são resolvidos por `route=sugestao`/`route=busca`; match ambíguo vai para `nao_resolvidos` (nunca chuta). A validação não checa CNAE. A saída traz `total`, `leads`, `descartados` e `nao_resolvidos`.
+
+> ⚠️ O desempate de nomes ambíguos só funciona por **UF**, e só na `busca`: a API real não devolve `uf` na `sugestao` nem `municipio` em nenhuma das duas rotas.
 
 **Flags disponíveis** (ambos os comandos):
 
@@ -158,11 +165,12 @@ uv run python -m scripts.pipeline_cli prospectar "dentista" --uf SP --municipio 
 | `--uf` | UF do cadastro (ex. `SP`) |
 | `--municipio` | nome do município |
 | `--porte` | `ME`, `EPP` ou `demais` |
+| `--arquivo` | (só em `validar-lista`) JSON com a lista de CNPJs/nomes |
 | `--cep` | 📍 prefixo de CEP — filtra por **bairro/região** dentro de um município (ex. `--cep 0507` cobre a região da Lapa em São Paulo capital) |
 | `--matriz` | só estabelecimentos **matriz** (exclui filiais; envia `matriz_filial=1` na busca avançada) |
-| `--situacao` | situação cadastral desejada (padrão: `ativa`) |
+| `--situacao` | (também em `validar-lista`) situação cadastral desejada (padrão: `ativa`) |
 | `--db-path` | onde fica o checkpoint SQLite (padrão: `.cache/pipeline.sqlite3`) |
-| `--sites-json` | (só em `prospectar`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
+| `--sites-json` | (em `prospectar` e `validar-lista`) arquivo `{"cnpj": "url candidata"}` pra habilitar o enriquecimento por scraping (site, e-mail, redes sociais) |
 
 Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não tem os campos de site/e-mail/redes sociais, que dependem de uma URL candidata (achada via busca web, fora do escopo do script; ver `SKILL.md`).
 

@@ -84,7 +84,7 @@ Sem teto de chamadas, a busca avançada é o **motor primário de descoberta**: 
 |---|---|---|
 | S0 — ICP | `status` | preflight: valida token, conectividade e versão |
 | S1 — Descoberta | `avancada` | motor primário: CNAE + geografia + porte + situação, paginado |
-| S2 — Resolução | `busca`, `sugestao` | resolve candidatos sem CNPJ |
+| S2 — Resolução | `busca`, `sugestao` | resolve candidatos sem CNPJ (comando `validar-lista`); `sugestao` não traz `uf`/`municipio` e `busca` traz só `uf`, então o desempate é só por UF na `busca` |
 | S3 — Validação | `cnpj` | detalhe completo: situação, CNAEs, sócios, filiais, contatos cadastrais |
 | S4 — Enriquecimento | — | scraping externo, fora do BaseCNPJ |
 | S5 — Expansão | `rede` | grafo societário: empresas irmãs do mesmo grupo |
