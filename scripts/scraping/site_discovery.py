@@ -6,6 +6,17 @@ from dataclasses import dataclass
 from scripts.utils import only_digits
 
 
+_TRECHO_NUMERICO_RE = re.compile(r"\d[\d\s().\-/]*\d")
+TELEFONE_COM_DDD_MIN_DIGITOS = 10
+
+
+def _trechos_numericos(html: str) -> list[str]:
+    """Trechos da página que parecem um número (dígitos com separadores), já
+    normalizados para só dígitos — números soltos em tags diferentes não se juntam.
+    """
+    return [only_digits(trecho) for trecho in _TRECHO_NUMERICO_RE.findall(html)]
+
+
 def _normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().lower()
 
@@ -29,11 +40,11 @@ def validar_match(
     confirma o site (quem chama descarta em vez de gravar lixo).
     """
     texto = _normalize_text(html)
-    texto_digitos = only_digits(html)
+    trechos = _trechos_numericos(html)
     sinais: list[str] = []
 
     cnpj_digitos = only_digits(cnpj)
-    if cnpj_digitos and cnpj_digitos in texto_digitos:
+    if cnpj_digitos and any(cnpj_digitos in trecho for trecho in trechos):
         sinais.append("cnpj")
 
     if razao_social and _normalize_text(razao_social) in texto:
@@ -44,8 +55,14 @@ def validar_match(
 
     if telefone:
         telefone_digitos = only_digits(telefone)
-        if telefone_digitos and telefone_digitos in texto_digitos:
-            sinais.append("telefone")
+        if telefone_digitos:
+            if len(telefone_digitos) < TELEFONE_COM_DDD_MIN_DIGITOS:
+                # sem DDD: o trecho precisa terminar no número, não só conter
+                bateu = any(trecho.endswith(telefone_digitos) for trecho in trechos)
+            else:
+                bateu = any(telefone_digitos in trecho for trecho in trechos)
+            if bateu:
+                sinais.append("telefone")
 
     return MatchResult(matched=bool(sinais), sinais=sinais)
 

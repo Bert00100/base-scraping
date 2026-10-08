@@ -182,24 +182,16 @@ def prospectar(
             enrichment = None
             candidate_url = sites.get(v["cnpj"])
             if candidate_url:
-                razao_social = resultado.detalhe.razao_social if resultado.detalhe else None
-                nome_fantasia = (
-                    resultado.detalhe.estabelecimento_matriz.nome_fantasia
-                    if resultado.detalhe and resultado.detalhe.estabelecimento_matriz
-                    else None
-                )
-                email_cadastral = (
-                    resultado.detalhe.estabelecimento_matriz.email
-                    if resultado.detalhe and resultado.detalhe.estabelecimento_matriz
-                    else None
-                )
+                detalhe = resultado.detalhe
+                matriz = detalhe.estabelecimento_matriz if detalhe else None
                 enrichment = await enrich(
                     candidate_url,
                     session,
                     cnpj=v["cnpj"],
-                    razao_social=razao_social,
-                    nome_fantasia=nome_fantasia,
-                    email_cadastral=email_cadastral,
+                    razao_social=detalhe.razao_social if detalhe else None,
+                    nome_fantasia=matriz.nome_fantasia if matriz else None,
+                    telefone_cadastral=detalhe.telefone_principal() if detalhe else None,
+                    email_cadastral=matriz.email if matriz else None,
                 )
 
             score = compute_score(resultado, enrichment)
