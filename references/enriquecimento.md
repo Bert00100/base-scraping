@@ -1,4 +1,4 @@
-Se# Enriquecimento por scraping (S4)
+# Enriquecimento por scraping (S4)
 
 Única etapa do pipeline fora do BaseCNPJ. Roda **depois** do S3 (validação cadastral) — só entra em cena para leads já validados, e usa dado cadastral como pista e como fonte de verificação cruzada. Quatro sub-etapas.
 

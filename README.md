@@ -5,7 +5,7 @@
 <p>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white">
   <img alt="uv" src="https://img.shields.io/badge/deps-uv-6340ac">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-119%20passing-brightgreen?logo=pytest&logoColor=white">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-137%20passing-brightgreen?logo=pytest&logoColor=white">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-informational">
   <img alt="Saída" src="https://img.shields.io/badge/output-JSON-black?logo=json">
 </p>
@@ -220,6 +220,7 @@ Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não t
 |---|---|
 | 🔢 Teto de leads | **100 por execução**, fixo — a busca avançada para de paginar ao chegar nesse número |
 | 📤 Formato de saída | **Sempre JSON.** SQLite é só checkpoint interno, nunca é a saída final |
+| 🧩 Resolução de identidade (S2) | Só no `validar-lista`; `descobrir`/`prospectar` não passam por ela. Desempate de nome só por UF, e só na `busca` (a API não devolve município) |
 | 🕸️ Rede societária (S5) | Cliente já expõe `routes.rede()`, mas o pipeline não a chama — fica pra uma fase 2 |
 | 🎭 Sites com JavaScript | Marcados (`requer_navegador=true`) e pulados — sem Playwright nesta versão |
 | 🚫 LinkedIn | Fora de escopo — viola os Termos de Uso da plataforma e é o maior risco de LGPD do projeto |
@@ -243,9 +244,10 @@ base-scraping/
 │   ├── basecnpj/                # 📡 cliente da API (cache, retry, mapa de erros)
 │   ├── pipeline/                # 🔁 descoberta, validação, score, export
 │   ├── scraping/                # 🌐 site oficial, contatos, verificação de e-mail
+│   ├── utils.py                 # 🧰 helpers compartilhados (only_digits)
 │   ├── cli.py                   # 🛠️ CLI de teste manual das 6 rotas do BaseCNPJ
-│   └── pipeline_cli.py          # 🚀 CLI principal: descobrir / prospectar
-└── tests/                       # 🧪 suíte de testes (pytest)
+│   └── pipeline_cli.py          # 🚀 CLI principal: descobrir / prospectar / validar-lista
+└── tests/                       # 🧪 suíte de testes (pytest), incluindo test_pipeline_cli.py (CLI ponta a ponta com respx)
 ```
 
 ---
@@ -256,7 +258,7 @@ base-scraping/
 uv run --group dev pytest
 ```
 
-✅ **119 testes**, cobrindo o cliente da API, o pipeline de descoberta/validação e o scraping — sem nenhuma chamada de rede real (tudo mockado com `respx`).
+✅ **137 testes**, cobrindo o cliente da API, o pipeline de descoberta/validação e o scraping — sem nenhuma chamada de rede real (tudo mockado com `respx`).
 
 ---
 
