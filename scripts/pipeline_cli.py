@@ -135,6 +135,15 @@ async def _descobrir_ate_validar(
     return conn, run_id, validados
 
 
+def _listar_descartados(conn: Any, run_id: str) -> list[dict[str, Any]]:
+    """Leads que não chegaram à saída (descartados na validação ou não resolvidos)."""
+    descartados: list[dict[str, Any]] = []
+    for status in ("descartado", "nao_resolvido"):
+        for lead in db_module.list_leads(conn, run_id, status=status):
+            descartados.append({"cnpj": lead["cnpj"], "motivo": lead["discard_reason"]})
+    return descartados
+
+
 @app.command()
 def descobrir(
     nicho: str,
@@ -157,8 +166,8 @@ def descobrir(
     """
     icp = _resolve_icp_or_exit(nicho, uf, municipio, porte, situacao, cep, matriz)
 
-    async def _pipeline() -> list[dict[str, Any]]:
-        _conn, _run_id, validados = await _descobrir_ate_validar(
+    async def _pipeline() -> dict[str, Any]:
+        conn, run_id, validados = await _descobrir_ate_validar(
             icp,
             nicho=nicho,
             uf=uf,
@@ -169,10 +178,11 @@ def descobrir(
             db_path=db_path,
             matriz=matriz,
         )
-        return [{"cnpj": v["cnpj"], "razao_social": (v["detalhe"] or {}).get("razao_social")} for v in validados]
+        leads = [{"cnpj": v["cnpj"], "razao_social": (v["detalhe"] or {}).get("razao_social")} for v in validados]
+        return {"total": len(leads), "leads": leads, "descartados": _listar_descartados(conn, run_id)}
 
-    resultados = _run_or_exit(_pipeline())
-    typer.echo(json.dumps({"total": len(resultados), "leads": resultados}, indent=2, ensure_ascii=False, default=str))
+    resultado_final = _run_or_exit(_pipeline())
+    typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
 
 
 @app.command()
@@ -241,7 +251,9 @@ def prospectar(
             score = compute_score(resultado, enrichment)
             leads_json.append(build_lead_json(resultado, score, enrichment))
 
-        return export_leads(leads_json, max_leads=TARGET_LEADS)
+        saida = export_leads(leads_json, max_leads=TARGET_LEADS)
+        saida["descartados"] = _listar_descartados(conn, run_id)
+        return saida
 
     resultado_final = _run_or_exit(_pipeline())
     typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))

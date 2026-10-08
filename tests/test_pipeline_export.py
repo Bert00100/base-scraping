@@ -109,6 +109,40 @@ def test_build_lead_json_skips_scraping_fields_when_site_not_matched():
     assert "emails" not in lead
 
 
+def test_enriquecimento_status_ok():
+    enrichment = EnrichmentResult(site="https://empresa.com.br/", site_matched=True)
+    lead = build_lead_json(_validacao(), _BREAKDOWN, enrichment=enrichment)
+    assert lead["enriquecimento"] == {"status": "ok", "motivo": None}
+
+
+def test_enriquecimento_status_requer_navegador():
+    enrichment = EnrichmentResult(site="https://empresa.com.br/", site_matched=True, requer_navegador=True)
+    lead = build_lead_json(_validacao(), _BREAKDOWN, enrichment=enrichment)
+    assert lead["enriquecimento"] == {"status": "requer_navegador", "motivo": None}
+
+
+def test_enriquecimento_status_match_fraco():
+    enrichment = EnrichmentResult(site="https://outrosite.com.br/", site_matched=False, erro="match_fraco")
+    lead = build_lead_json(_validacao(), _BREAKDOWN, enrichment=enrichment)
+    assert lead["enriquecimento"] == {"status": "match_fraco", "motivo": "match_fraco"}
+
+
+def test_enriquecimento_status_falha():
+    enrichment = EnrichmentResult(site="https://empresa.com.br/", erro="ConnectError: timeout")
+    lead = build_lead_json(_validacao(), _BREAKDOWN, enrichment=enrichment)
+    assert lead["enriquecimento"] == {"status": "falha", "motivo": "ConnectError: timeout"}
+
+
+def test_enriquecimento_status_falha_ao_extrair_contatos_com_site_confirmado():
+    enrichment = EnrichmentResult(site="https://empresa.com.br/", site_matched=True, erro="falha_ao_extrair_contatos: X")
+    lead = build_lead_json(_validacao(), _BREAKDOWN, enrichment=enrichment)
+    assert lead["enriquecimento"]["status"] == "falha"
+
+
+def test_sem_enrichment_nao_tem_campo_enriquecimento():
+    assert "enriquecimento" not in build_lead_json(_validacao(), _BREAKDOWN)
+
+
 def test_export_leads_caps_at_max_and_keeps_highest_scores():
     leads = [{"cnpj": str(i), "score": i} for i in range(150)]
     result = export_leads(leads, max_leads=100)

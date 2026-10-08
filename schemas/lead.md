@@ -17,6 +17,7 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 | `emails[]` (valor + nível 1-5+) | S4.2/4.3 (descoberta + verificação) | — | não |
 | `telefones[]`, `whatsapp`, `redes_sociais{}` | S4 | — | não |
 | `contatos[]` (nome, cargo, email) | S4.2 | — | não |
+| `enriquecimento{status, motivo}` | S4 (só quando houve URL candidata) | — | não |
 | `score`, `score_breakdown{}` | S6 (scoring) | — | sim |
 | `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` | todo o pipeline | — | sim |
 

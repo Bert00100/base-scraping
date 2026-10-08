@@ -14,6 +14,17 @@ def _proveniencia(fonte: str, rota_ou_url: str, timestamp: float) -> dict[str, A
     return {"fonte": fonte, "rota_ou_url": rota_ou_url, "timestamp": timestamp}
 
 
+def _status_enriquecimento(enrichment: EnrichmentResult) -> str:
+    """ok, requer_navegador, match_fraco ou falha — derivado dos campos do S4."""
+    if enrichment.site_matched and enrichment.requer_navegador:
+        return "requer_navegador"
+    if not enrichment.site_matched and enrichment.erro == "match_fraco":
+        return "match_fraco"
+    if enrichment.erro or not enrichment.site_matched:
+        return "falha"
+    return "ok"
+
+
 def build_lead_json(
     validacao: ValidacaoResult,
     score: ScoreBreakdown,
@@ -107,6 +118,9 @@ def build_lead_json(
         if enrichment.redes_sociais:
             lead["redes_sociais"] = enrichment.redes_sociais
             proveniencia["redes_sociais"] = _proveniencia("scraping", origem, enriquecido_em)
+
+    if enrichment is not None:
+        lead["enriquecimento"] = {"status": _status_enriquecimento(enrichment), "motivo": enrichment.erro}
 
     lead["proveniencia"] = proveniencia
     return lead

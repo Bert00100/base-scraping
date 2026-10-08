@@ -45,7 +45,9 @@ def test_cnpj_404_marca_nao_resolvido_e_segue(tmp_path):
         result, db_path = _invocar(tmp_path)
 
     assert result.exit_code == 0
-    assert json.loads(result.stdout)["total"] == 0
+    saida = json.loads(result.stdout)
+    assert saida["total"] == 0
+    assert saida["descartados"] == [{"cnpj": "11111111000111", "motivo": "cnpj nao encontrado no BaseCNPJ (404)"}]
     conn = db_module.connect(db_path)
     run_id = conn.execute("SELECT run_id FROM runs").fetchone()[0]
     leads = db_module.list_leads(conn, run_id, status="nao_resolvido")
@@ -74,3 +76,26 @@ def test_status_diferente_de_ok_sai_com_preflight_falhou(tmp_path):
     saida = json.loads(result.stdout)
     assert saida["erro"] == "preflight_falhou"
     assert "degraded" in saida["mensagem"]
+
+
+def test_descartado_na_validacao_aparece_em_descartados(tmp_path):
+    detalhe = {
+        "cnpj_basico": "11111111",
+        "cnpj_completo_formatado": "11.111.111/0001-11",
+        "razao_social": "EMPRESA INAPTA LTDA",
+        "estabelecimento_matriz": {"situacao_cadastral": "04"},
+        "cnaes": [{"tipo": "Principal", "cnae": "8630504", "desc": "Odontologia"}],
+    }
+    with respx.mock(base_url=BASE_URL) as mock:
+        mock.get("", params={"route": "status"}).mock(return_value=_ok({"status": "ok"}))
+        mock.get("", params={"route": "avancada"}).mock(
+            return_value=_ok({"total_pages": 1, "items": [{"cnpj_completo": "11111111000111"}]})
+        )
+        mock.get("", params={"route": "cnpj"}).mock(return_value=_ok(detalhe))
+        result, _ = _invocar(tmp_path)
+
+    assert result.exit_code == 0
+    saida = json.loads(result.stdout)
+    assert saida["total"] == 0
+    assert saida["descartados"][0]["cnpj"] == "11111111000111"
+    assert "situacao_cadastral=04" in saida["descartados"][0]["motivo"]

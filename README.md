@@ -183,6 +183,7 @@ Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não t
       "situacao_cadastral": "Ativa",
       "endereco": { "municipio": "HOLAMBRA", "uf": "SP", "cep": "13825-000" },
       "telefone_cadastral": "(19) 3802-1183",
+      "enriquecimento": { "status": "ok", "motivo": null },
       "score": 58.0,
       "score_breakdown": {
         "aderencia_icp": 30.0,
@@ -194,9 +195,12 @@ Sem `--sites-json`, `prospectar` ainda funciona e pontua os leads — só não t
         "razao_social": { "fonte": "basecnpj", "rota_ou_url": "route=cnpj", "timestamp": 1788869605.6 }
       }
     }
-  ]
+  ],
+  "descartados": [{ "cnpj": "11111111000111", "motivo": "situacao_cadastral=04 (esperado 02)" }]
 }
 ```
+
+📋 `descartados` lista os leads que não entraram na saída (`cnpj` + `motivo`: ICP divergente ou CNPJ não encontrado), e `enriquecimento.status` (`ok`, `requer_navegador`, `match_fraco` ou `falha`) explica o resultado do scraping de cada lead com site candidato.
 
 🔎 Todo campo carrega sua origem em `proveniencia` — pra qualquer dado, dá pra responder **"de onde veio isso e quando"**.
 
