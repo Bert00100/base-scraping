@@ -5,7 +5,6 @@
 <p>
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white">
   <img alt="uv" src="https://img.shields.io/badge/deps-uv-6340ac">
-  <img alt="Tests" src="https://img.shields.io/badge/tests-140%20passing-brightgreen?logo=pytest&logoColor=white">
   <img alt="License MIT" src="https://img.shields.io/badge/license-MIT-informational">
   <img alt="Saída" src="https://img.shields.io/badge/output-JSON-black?logo=json">
 </p>
@@ -33,7 +32,6 @@ $ uv run python -m scripts.pipeline_cli prospectar "dentista" --uf SP --municipi
 - [📊 Exemplo de saída](#-exemplo-de-saída)
 - [⚠️ Limites de design](#️-limites-de-design)
 - [🗂️ Estrutura do projeto](#️-estrutura-do-projeto)
-- [🧪 Testes](#-testes)
 - [🔒 LGPD e compliance](#-lgpd-e-compliance)
 - [📄 Licença](#-licença)
 
@@ -247,18 +245,9 @@ base-scraping/
 │   ├── utils.py                 # 🧰 helpers compartilhados (only_digits)
 │   ├── cli.py                   # 🛠️ CLI de teste manual das 6 rotas do BaseCNPJ
 │   └── pipeline_cli.py          # 🚀 CLI principal: descobrir / prospectar / validar-lista
-└── tests/                       # 🧪 suíte de testes (pytest), incluindo test_pipeline_cli.py (CLI ponta a ponta com respx)
 ```
 
----
-
-## 🧪 Testes
-
-```bash
-uv run --group dev pytest
-```
-
-✅ **140 testes**, cobrindo o cliente da API, o pipeline de descoberta/validação e o scraping — sem nenhuma chamada de rede real (tudo mockado com `respx`).
+> ℹ️ A suíte de testes (`tests/`) e o `uv.lock` ficam só no ambiente de desenvolvimento e não são publicados neste repositório — a skill não precisa deles para rodar.
 
 ---
 

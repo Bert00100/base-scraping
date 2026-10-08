@@ -21,7 +21,7 @@ Ver `references/basecnpj.md` para rotas/erros/limites da API, `references/cnae.m
 
 ## Como invocar (instruções práticas para o Claude executando o skill)
 
-O pipeline já está implementado e testado (140 testes) em `scripts/`. Não escreva Python novo para responder um pedido de prospecção — **rode os comandos abaixo via Bash**.
+O pipeline já está implementado e testado em `scripts/`. Não escreva Python novo para responder um pedido de prospecção — **rode os comandos abaixo via Bash**.
 
 1. **Diretório de trabalho:** todos os comandos abaixo assumem `cd` para a raiz deste skill (onde estão `pyproject.toml` e `scripts/`). Rode `ls pyproject.toml` para confirmar que está no lugar certo antes de tudo.
 2. **Dependências:** se for a primeira vez, `uv sync` instala tudo (ambiente já costuma estar pronto). Nunca rode `pip install` direto — este projeto usa `uv`.

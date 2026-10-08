@@ -15,6 +15,11 @@ build/
 *.sqlite
 *.sqlite3
 
+# só desenvolvimento: a skill não precisa disto para rodar no CLI de IA
+# (suíte de testes e lockfile ficam no disco do dev, fora do repositório)
+tests/
+uv.lock
+
 # documento interno de planejamento/arquitetura — não é necessário pra a skill
 # funcionar (SKILL.md + references/ + schemas/ já têm tudo que o pipeline usa em
 # runtime) e tem linguagem de processo interno ("Passo 4 concluído" etc.) que não
