@@ -20,7 +20,7 @@ Cada campo carrega sua origem, o que permite rastrear proveniência ponta a pont
 | `score`, `score_breakdown{}` | S6 (scoring) | — | sim |
 | `proveniencia{campo: {fonte, rota_ou_url, timestamp}}` | todo o pipeline | — | sim |
 
-Ver `scripts/basecnpj/models.py` (`CNPJDetalhe`, `EstabelecimentoMatriz`, `AvancadaItem`) para os modelos Pydantic reais, e `references/basecnpj.md` para o levantamento completo do formato observado.
+Ver `scripts/basecnpj/models.py` (`CNPJDetalhe`, `EstabelecimentoMatriz`) para os modelos Pydantic reais, e `references/basecnpj.md` para o levantamento completo do formato observado.
 
 ## Scoring (S6) — pesos por dimensão
 

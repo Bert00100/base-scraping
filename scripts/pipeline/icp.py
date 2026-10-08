@@ -41,7 +41,6 @@ _CNAE_SUBCLASSE_RE = re.compile(r"(\d{4})-(\d)/(\d{2})")
 class NichoEntry:
     aliases: list[str]
     cnaes: list[str]
-    raw_row: str
 
 
 @dataclass
@@ -94,7 +93,7 @@ def load_cnae_dictionary(path: Path | str = DEFAULT_CNAE_DICT_PATH) -> list[Nich
         cnaes = _cnaes_from_row(cnae_col, prefixo_col)
         if not aliases or not cnaes:
             continue
-        entries.append(NichoEntry(aliases=aliases, cnaes=cnaes, raw_row=line.strip()))
+        entries.append(NichoEntry(aliases=aliases, cnaes=cnaes))
     return entries
 
 

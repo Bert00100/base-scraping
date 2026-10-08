@@ -78,29 +78,3 @@ class CNPJDetalhe(BaseModel):
             if est.cnpj_completo_formatado == self.cnpj_completo_formatado:
                 return est.matriz_filial_codigo
         return None
-
-
-class AvancadaItem(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    cnpj_completo: str
-    razao_social: str
-    porte_codigo: str | None = None
-    porte_descricao: str | None = None
-    situacao_codigo: str | None = None
-    situacao_descricao: str | None = None
-    cnae_principal: str | None = None
-    uf: str | None = None
-    municipio: str | None = None
-    email: str | None = None
-    telefone: str | None = None
-
-
-class AvancadaResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    page: int
-    per_page: int
-    total: int
-    total_pages: int
-    items: list[AvancadaItem]

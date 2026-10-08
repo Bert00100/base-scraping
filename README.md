@@ -240,7 +240,7 @@ base-scraping/
 ## 🧪 Testes
 
 ```bash
-uv run pytest
+uv run --group dev pytest
 ```
 
 ✅ **119 testes**, cobrindo o cliente da API, o pipeline de descoberta/validação e o scraping — sem nenhuma chamada de rede real (tudo mockado com `respx`).
