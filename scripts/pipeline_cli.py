@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import typer
 
@@ -13,6 +13,7 @@ from scripts.pipeline import icp as icp_module
 from scripts.pipeline.export import export_leads, build_lead_json
 from scripts.pipeline.score import compute_score
 from scripts.pipeline.validate import validate_lead
+from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.scraping.enrich import enrich
 from scripts.scraping.http import ScrapeSession
 
@@ -21,8 +22,25 @@ app = typer.Typer(help="Pipeline do base-scraping — S0→S3 (descobrir) e S0�
 TARGET_LEADS = 100  # decisão fechada, seção 11 do ARCTETURE.md — sem override de CLI
 
 
-def _run(coro):
-    return asyncio.run(coro)
+class PreflightError(RuntimeError):
+    """O `route=status` não respondeu `ok` — a descoberta não deve começar."""
+
+
+def _exit_with_error(codigo: str, mensagem: str) -> NoReturn:
+    typer.echo(json.dumps({"erro": codigo, "mensagem": mensagem}, ensure_ascii=False))
+    raise typer.Exit(code=1)
+
+
+def _run_or_exit(coro):
+    try:
+        return asyncio.run(coro)
+    except AuthError:
+        _exit_with_error(
+            "token_invalido",
+            "Token inválido, expirado ou sem permissão para a rota; conferir a variável BASECNPJ_TOKEN.",
+        )
+    except PreflightError as exc:
+        _exit_with_error("preflight_falhou", str(exc))
 
 
 def _resolve_icp_or_exit(
@@ -30,19 +48,13 @@ def _resolve_icp_or_exit(
 ) -> icp_module.ICP:
     icp = icp_module.build_icp(nicho=nicho, uf=uf, municipio=municipio, porte=porte, situacao=situacao, cep=cep)
     if icp.needs_confirmation:
-        typer.echo(
-            json.dumps(
-                {
-                    "erro": "nicho_nao_encontrado",
-                    "mensagem": (
-                        f"Nicho '{nicho}' não está em references/cnae.md. "
-                        "Confirme o(s) CNAE(s) certo(s) com o usuário antes de rodar a descoberta."
-                    ),
-                },
-                ensure_ascii=False,
-            )
+        _exit_with_error(
+            "nicho_nao_encontrado",
+            (
+                f"Nicho '{nicho}' não está em references/cnae.md. "
+                "Confirme o(s) CNAE(s) certo(s) com o usuário antes de rodar a descoberta."
+            ),
         )
-        raise typer.Exit(code=1)
     return icp
 
 
@@ -62,7 +74,7 @@ async def _descobrir_ate_validar(
     """
     status = await icp_module.preflight()
     if status.get("status") != "ok":
-        raise RuntimeError(f"preflight falhou: {status}")
+        raise PreflightError(f"preflight falhou: {status}")
 
     conn = db_module.connect(Path(db_path) if db_path else None)
     params = {"nicho": nicho, "uf": uf, "municipio": municipio, "porte": porte, "situacao": situacao, "cep": cep}
@@ -75,7 +87,17 @@ async def _descobrir_ate_validar(
     # leads já validados/descartados em execuções anteriores (retomada) são pulados
     for lead in descobertos:
         cnpj = lead["cnpj"]
-        resultado = await validate_lead(cnpj, icp)
+        try:
+            resultado = await validate_lead(cnpj, icp)
+        except NotFoundError:
+            db_module.upsert_lead(
+                conn,
+                run_id,
+                cnpj,
+                status="nao_resolvido",
+                discard_reason="cnpj nao encontrado no BaseCNPJ (404)",
+            )
+            continue
         db_module.upsert_lead(
             conn,
             run_id,
@@ -115,7 +137,7 @@ def descobrir(
         )
         return [{"cnpj": v["cnpj"], "razao_social": (v["detalhe"] or {}).get("razao_social")} for v in validados]
 
-    resultados = _run(_pipeline())
+    resultados = _run_or_exit(_pipeline())
     typer.echo(json.dumps({"total": len(resultados), "leads": resultados}, indent=2, ensure_ascii=False, default=str))
 
 
@@ -185,7 +207,7 @@ def prospectar(
 
         return export_leads(leads_json, max_leads=TARGET_LEADS)
 
-    resultado_final = _run(_pipeline())
+    resultado_final = _run_or_exit(_pipeline())
     typer.echo(json.dumps(resultado_final, indent=2, ensure_ascii=False, default=str))
 
 
