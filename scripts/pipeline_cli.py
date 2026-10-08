@@ -12,7 +12,7 @@ from scripts.pipeline import discovery
 from scripts.pipeline import icp as icp_module
 from scripts.pipeline.export import export_leads, build_lead_json
 from scripts.pipeline.score import compute_score
-from scripts.pipeline.validate import validate_lead
+from scripts.pipeline.validate import ValidacaoResult, validate_lead
 from scripts.basecnpj.errors import AuthError, NotFoundError
 from scripts.scraping.enrich import enrich
 from scripts.scraping.http import ScrapeSession
@@ -144,6 +144,36 @@ def _listar_descartados(conn: Any, run_id: str) -> list[dict[str, Any]]:
     return descartados
 
 
+async def _enriquecer_e_pontuar(
+    resultados: list[ValidacaoResult],
+    sites: dict[str, str],
+) -> list[dict[str, Any]]:
+    """S4+S6: para cada resultado validado, enriquece (quando há site candidato em
+    `sites`) e pontua. Devolve os JSONs de lead, ainda sem ordenar/limitar.
+    """
+    session = ScrapeSession()
+    leads_json: list[dict[str, Any]] = []
+    for resultado in resultados:
+        enrichment = None
+        candidate_url = sites.get(resultado.cnpj)
+        if candidate_url:
+            detalhe = resultado.detalhe
+            estab = detalhe.estabelecimento_matriz if detalhe else None
+            enrichment = await enrich(
+                candidate_url,
+                session,
+                cnpj=resultado.cnpj,
+                razao_social=detalhe.razao_social if detalhe else None,
+                nome_fantasia=estab.nome_fantasia if estab else None,
+                telefone_cadastral=detalhe.telefone_principal() if detalhe else None,
+                email_cadastral=estab.email if estab else None,
+            )
+
+        score = compute_score(resultado, enrichment)
+        leads_json.append(build_lead_json(resultado, score, enrichment))
+    return leads_json
+
+
 @app.command()
 def descobrir(
     nicho: str,
@@ -224,33 +254,16 @@ def prospectar(
             matriz=matriz,
         )
 
-        session = ScrapeSession()
-        leads_json: list[dict[str, Any]] = []
+        resultados: list[ValidacaoResult] = []
         for v in validados:
             # reconstrói o ValidacaoResult completo (flags/cnae_match) a partir do
             # detalhe já persistido — sem nova chamada de rede (raw= evita o fetch)
             resultado = await validate_lead(v["cnpj"], icp, raw=v["detalhe"])
             if resultado.status != "validado":
                 continue  # ICP mudou entre execuções — não deveria acontecer, mas não quebra
+            resultados.append(resultado)
 
-            enrichment = None
-            candidate_url = sites.get(v["cnpj"])
-            if candidate_url:
-                detalhe = resultado.detalhe
-                estab = detalhe.estabelecimento_matriz if detalhe else None
-                enrichment = await enrich(
-                    candidate_url,
-                    session,
-                    cnpj=v["cnpj"],
-                    razao_social=detalhe.razao_social if detalhe else None,
-                    nome_fantasia=estab.nome_fantasia if estab else None,
-                    telefone_cadastral=detalhe.telefone_principal() if detalhe else None,
-                    email_cadastral=estab.email if estab else None,
-                )
-
-            score = compute_score(resultado, enrichment)
-            leads_json.append(build_lead_json(resultado, score, enrichment))
-
+        leads_json = await _enriquecer_e_pontuar(resultados, sites)
         saida = export_leads(leads_json, max_leads=TARGET_LEADS)
         saida["descartados"] = _listar_descartados(conn, run_id)
         return saida
